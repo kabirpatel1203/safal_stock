@@ -1,0 +1,32 @@
+{
+  "name": "veneer-inventory",
+  "version": "1.0.0",
+  "description": "Veneer Inventory Management System - A mobile-first web application for managing veneer stock in godowns",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "cd frontend && npm install && npm run build",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "heroku-postbuild": "cd backend && npm install && cd ../frontend && npm install && npm run build",
+    "seed": "cd backend && npm run seed"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "veneer",
+    "inventory",
+    "management",
+    "godown",
+    "stock",
+    "mobile-first"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

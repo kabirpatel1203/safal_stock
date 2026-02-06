@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import SearchFilter from './SearchFilter';
 import QuantityFilter from './QuantityFilter';
+import CategoryModal from './CategoryModal';
 import { categoryAPI, subCategoryAPI, productAPI } from '../utils/api';
 
 // Skeleton loader for cards
@@ -64,22 +65,24 @@ const Dashboard = () => {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [showFilteredProducts, setShowFilteredProducts] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
 
   // Fetch categories
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await categoryAPI.getAll();
-        setCategories(response.data);
-      } catch (error) {
-        toast.error('Failed to load categories');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchCategories();
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await categoryAPI.getAll();
+      setCategories(response.data);
+    } catch (error) {
+      toast.error('Failed to load categories');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   // Debounced search for categories and subcategories
   useEffect(() => {
@@ -165,6 +168,15 @@ const Dashboard = () => {
     const categoryId = product.subCategoryId?.categoryId?._id || product.subCategoryId?.categoryId;
     const subCategoryId = product.subCategoryId?._id || product.subCategoryId;
     navigate(`/category/${categoryId}/subcategory/${subCategoryId}`);
+  };
+
+  const handleSaveCategory = async (categoryData, categoryId) => {
+    if (categoryId) {
+      await categoryAPI.update(categoryId, categoryData);
+    } else {
+      await categoryAPI.create(categoryData);
+    }
+    fetchCategories();
   };
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -302,6 +314,31 @@ const Dashboard = () => {
           </div>
         )}
       </main>
+
+      {/* Floating Action Button */}
+      <button
+        onClick={() => {
+          setEditingCategory(null);
+          setIsCategoryModalOpen(true);
+        }}
+        className="fab fixed bottom-6 right-6 w-14 h-14 bg-primary-500 hover:bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-30"
+        title="Add Category"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
+      {/* Category Modal */}
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => {
+          setIsCategoryModalOpen(false);
+          setEditingCategory(null);
+        }}
+        onSave={handleSaveCategory}
+        category={editingCategory}
+      />
     </div>
   );
 };

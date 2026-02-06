@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import SearchFilter from './SearchFilter';
 import QuantityFilter from './QuantityFilter';
+import SubCategoryModal from './SubCategoryModal';
 import { categoryAPI, subCategoryAPI, productAPI } from '../utils/api';
 
 // Skeleton loader
@@ -66,28 +67,30 @@ const CategoryView = () => {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [showFilteredProducts, setShowFilteredProducts] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isSubCategoryModalOpen, setIsSubCategoryModalOpen] = useState(false);
+  const [editingSubCategory, setEditingSubCategory] = useState(null);
 
   // Fetch category and subcategories
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [catResponse, subCatResponse] = await Promise.all([
-          categoryAPI.getById(categoryId),
-          subCategoryAPI.getAll({ categoryId })
-        ]);
-        setCategory(catResponse.data);
-        setSubCategories(subCatResponse.data);
-      } catch (error) {
-        toast.error('Failed to load data');
-        navigate('/');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [catResponse, subCatResponse] = await Promise.all([
+        categoryAPI.getById(categoryId),
+        subCategoryAPI.getAll({ categoryId })
+      ]);
+      setCategory(catResponse.data);
+      setSubCategories(subCatResponse.data);
+    } catch (error) {
+      toast.error('Failed to load data');
+      navigate('/');
+    } finally {
+      setIsLoading(false);
+    }
   }, [categoryId, navigate]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Debounced search for subcategories
   useEffect(() => {
@@ -159,6 +162,15 @@ const CategoryView = () => {
   const handleProductClick = (product) => {
     const subCategoryId = product.subCategoryId?._id || product.subCategoryId;
     navigate(`/category/${categoryId}/subcategory/${subCategoryId}`);
+  };
+
+  const handleSaveSubCategory = async (subCategoryData, subCategoryId) => {
+    if (subCategoryId) {
+      await subCategoryAPI.update(subCategoryId, subCategoryData);
+    } else {
+      await subCategoryAPI.create(subCategoryData);
+    }
+    fetchData();
   };
 
   return (
@@ -291,6 +303,32 @@ const CategoryView = () => {
           </div>
         )}
       </main>
+
+      {/* Floating Action Button */}
+      <button
+        onClick={() => {
+          setEditingSubCategory(null);
+          setIsSubCategoryModalOpen(true);
+        }}
+        className="fab fixed bottom-6 right-6 w-14 h-14 bg-primary-500 hover:bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-30"
+        title="Add Subcategory"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
+      {/* SubCategory Modal */}
+      <SubCategoryModal
+        isOpen={isSubCategoryModalOpen}
+        onClose={() => {
+          setIsSubCategoryModalOpen(false);
+          setEditingSubCategory(null);
+        }}
+        onSave={handleSaveSubCategory}
+        subCategory={editingSubCategory}
+        categoryId={categoryId}
+      />
     </div>
   );
 };

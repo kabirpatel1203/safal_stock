@@ -1,10 +1,45 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import SearchFilter from './SearchFilter';
 import QuantityFilter from './QuantityFilter';
 import CategoryModal from './CategoryModal';
 import { categoryAPI, subCategoryAPI, productAPI } from '../utils/api';
+
+// Long press hook
+const useLongPress = (callback, ms = 500) => {
+  const timerRef = useRef(null);
+  const callbackRef = useRef(callback);
+  
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
+
+  const start = useCallback((e) => {
+    if (e.type === 'touchstart') {
+      e.preventDefault();
+    }
+    timerRef.current = setTimeout(() => {
+      callbackRef.current(e);
+    }, ms);
+  }, [ms]);
+
+  const stop = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  return {
+    onMouseDown: start,
+    onMouseUp: stop,
+    onMouseLeave: stop,
+    onTouchStart: start,
+    onTouchEnd: stop,
+    onTouchMove: stop,
+  };
+};
 
 // Skeleton loader for cards
 const CardSkeleton = () => (
@@ -19,39 +54,74 @@ const CardSkeleton = () => (
   </div>
 );
 
-// Product card for filtered results
-const ProductCard = ({ product, onClick }) => (
-  <div
-    onClick={onClick}
-    className="card p-4 cursor-pointer hover:shadow-md transition-shadow"
-  >
-    <div className="flex items-center gap-3">
-      {product.image ? (
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-12 h-12 object-cover rounded-lg"
-          loading="lazy"
-        />
-      ) : (
-        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+// Selectable Product card for filtered results
+const SelectableProductCard = ({ 
+  product, 
+  onClick, 
+  isSelectionMode, 
+  isSelected, 
+  onLongPress, 
+  onToggleSelect 
+}) => {
+  const longPressHandlers = useLongPress(onLongPress, 500);
+
+  const handleClick = (e) => {
+    if (isSelectionMode) {
+      e.preventDefault();
+      e.stopPropagation();
+      onToggleSelect();
+    } else {
+      onClick();
+    }
+  };
+
+  return (
+    <div
+      {...longPressHandlers}
+      onClick={handleClick}
+      className={`card p-4 cursor-pointer hover:shadow-md transition-all select-none ${
+        isSelected ? 'ring-2 ring-primary-500 bg-primary-50' : ''
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        {isSelectionMode && (
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={onToggleSelect}
+              onClick={(e) => e.stopPropagation()}
+              className="w-5 h-5 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
+            />
+          </div>
+        )}
+        {product.image ? (
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-12 h-12 object-cover rounded-lg"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-gray-800 truncate">{product.name}</h3>
+          <p className="text-sm text-gray-500">
+            Qty: {product.qty} | Rakam: ₹{product.rakam?.toLocaleString('en-IN') || 0}
+          </p>
+          <p className="text-xs text-gray-400 truncate">
+            {product.subCategoryId?.categoryId?.name} → {product.subCategoryId?.name}
+          </p>
         </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-gray-800 truncate">{product.name}</h3>
-        <p className="text-sm text-gray-500">
-          Qty: {product.qty} | Rakam: ₹{product.rakam?.toLocaleString('en-IN') || 0}
-        </p>
-        <p className="text-xs text-gray-400 truncate">
-          {product.subCategoryId?.categoryId?.name} → {product.subCategoryId?.name}
-        </p>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -67,6 +137,105 @@ const Dashboard = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+
+  // Selection mode state
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState(new Set());
+  const [isSharing, setIsSharing] = useState(false);
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedProducts(new Set());
+    setIsSelectionMode(false);
+  }, [searchText, qtyMin, qtyMax]);
+
+  // Handle long press to enter selection mode
+  const handleLongPress = useCallback((product) => {
+    setIsSelectionMode(true);
+    setSelectedProducts(new Set([product._id]));
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+  }, []);
+
+  // Toggle product selection
+  const toggleProductSelection = useCallback((productId) => {
+    setSelectedProducts(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      if (next.size === 0) {
+        setIsSelectionMode(false);
+      }
+      return next;
+    });
+  }, []);
+
+  // Select all products
+  const selectAllProducts = useCallback(() => {
+    const allIds = filteredProducts.map(p => p._id);
+    setSelectedProducts(new Set(allIds));
+  }, [filteredProducts]);
+
+  // Deselect all products
+  const clearSelection = useCallback(() => {
+    setSelectedProducts(new Set());
+    setIsSelectionMode(false);
+  }, []);
+
+  // Share selected product images
+  const shareSelectedImages = async () => {
+    const selectedProductsList = filteredProducts.filter(p => selectedProducts.has(p._id) && p.image);
+    
+    if (selectedProductsList.length === 0) {
+      toast.error('No images to share. Selected products have no images.');
+      return;
+    }
+
+    setIsSharing(true);
+    try {
+      const imagePromises = selectedProductsList.map(async (product) => {
+        try {
+          const response = await fetch(product.image);
+          const blob = await response.blob();
+          const extension = blob.type.split('/')[1] || 'jpg';
+          return new File([blob], `${product.name}.${extension}`, { type: blob.type });
+        } catch (err) {
+          console.error(`Failed to fetch image for ${product.name}:`, err);
+          return null;
+        }
+      });
+
+      const files = (await Promise.all(imagePromises)).filter(f => f !== null);
+
+      if (files.length === 0) {
+        toast.error('Failed to load images for sharing');
+        return;
+      }
+
+      if (navigator.canShare && navigator.canShare({ files })) {
+        await navigator.share({
+          files,
+          title: 'Product Images',
+          text: `Sharing ${files.length} product image(s) from inventory`,
+        });
+        toast.success('Images shared successfully');
+        clearSelection();
+      } else {
+        toast.error('Sharing not supported on this device. Please use a mobile device or a browser that supports sharing.');
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Share failed:', error);
+        toast.error('Failed to share images');
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   // Fetch categories
   const fetchCategories = useCallback(async () => {
@@ -221,6 +390,55 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="p-4">
+        {/* Selection Mode Toolbar */}
+        {isSelectionMode && showFilteredProducts && (
+          <div className="fixed top-0 left-0 right-0 bg-primary-600 text-white px-4 py-3 z-50 shadow-lg animate-slide-down">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={clearSelection}
+                  className="p-1 hover:bg-primary-700 rounded-lg transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <span className="font-medium">{selectedProducts.size} selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={selectedProducts.size === filteredProducts.length ? clearSelection : selectAllProducts}
+                  className="px-3 py-1.5 text-sm bg-primary-700 hover:bg-primary-800 rounded-lg transition-colors"
+                >
+                  {selectedProducts.size === filteredProducts.length ? 'Deselect All' : 'Select All'}
+                </button>
+                <button
+                  onClick={shareSelectedImages}
+                  disabled={isSharing || selectedProducts.size === 0}
+                  className="px-3 py-1.5 text-sm bg-white text-primary-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSharing ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Sharing...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                      Share Images
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Show filtered products or categories */}
         {showFilteredProducts ? (
           <div>
@@ -234,6 +452,7 @@ const Dashboard = () => {
                   setQtyMin(null);
                   setQtyMax(null);
                   setSearchText('');
+                  clearSelection();
                 }}
                 className="text-sm text-primary-600 hover:text-primary-700"
               >
@@ -250,10 +469,14 @@ const Dashboard = () => {
             ) : filteredProducts.length > 0 ? (
               <div className="grid gap-3">
                 {filteredProducts.map((product) => (
-                  <ProductCard
+                  <SelectableProductCard
                     key={product._id}
                     product={product}
                     onClick={() => handleProductClick(product)}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={selectedProducts.has(product._id)}
+                    onLongPress={() => handleLongPress(product)}
+                    onToggleSelect={() => toggleProductSelection(product._id)}
                   />
                 ))}
               </div>

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import PasscodeModal from './PasscodeModal';
 
-const SubCategoryModal = ({ isOpen, onClose, onSave, subCategory = null, categoryId }) => {
+const SubCategoryModal = ({ isOpen, onClose, onSave, onDelete, subCategory = null, categoryId }) => {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPasscodeModal, setShowPasscodeModal] = useState(false);
 
   // Initialize form data when subCategory changes
   useEffect(() => {
@@ -48,6 +50,14 @@ const SubCategoryModal = ({ isOpen, onClose, onSave, subCategory = null, categor
       toast.error(error.response?.data?.message || 'Failed to save subcategory');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (onDelete && subCategory?._id) {
+      await onDelete(subCategory._id);
+      toast.success('Subcategory deleted!');
+      onClose();
     }
   };
 
@@ -98,6 +108,25 @@ const SubCategoryModal = ({ isOpen, onClose, onSave, subCategory = null, categor
             />
           </div>
 
+          {/* Delete Button (only for editing existing subcategory) */}
+          {subCategory && onDelete && (
+            <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-100">
+              <p className="text-sm text-red-600 mb-2">
+                Deleting this subcategory will also delete all its products.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowPasscodeModal(true)}
+                className="w-full btn-danger text-sm py-2"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Delete Subcategory
+              </button>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex gap-3 mt-6">
             <button
@@ -128,6 +157,15 @@ const SubCategoryModal = ({ isOpen, onClose, onSave, subCategory = null, categor
           </div>
         </form>
       </div>
+
+      {/* Passcode Modal for Delete Confirmation */}
+      <PasscodeModal
+        isOpen={showPasscodeModal}
+        onClose={() => setShowPasscodeModal(false)}
+        onConfirm={handleDelete}
+        title="Delete Subcategory"
+        message={`Enter passcode to delete "${subCategory?.name}". This will also delete all products in this subcategory.`}
+      />
     </div>
   );
 };

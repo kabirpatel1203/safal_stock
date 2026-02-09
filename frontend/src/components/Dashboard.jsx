@@ -346,6 +346,11 @@ const Dashboard = () => {
     fetchCategories();
   };
 
+  const handleDeleteCategory = async (categoryId) => {
+    await categoryAPI.delete(categoryId);
+    fetchCategories();
+  };
+
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   return (
@@ -502,22 +507,45 @@ const Dashboard = () => {
                 {categories.map((category) => (
                   <div
                     key={category._id}
-                    onClick={() => navigate(`/category/${category._id}`)}
-                    className="card p-4 cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]"
+                    className="card p-4 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      <div 
+                        onClick={() => navigate(`/category/${category._id}`)}
+                        className="flex items-center gap-3 flex-1 cursor-pointer"
+                      >
+                        <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-800 truncate">{category.name}</h3>
+                          <p className="text-sm text-gray-500">
+                            {category.subCategoriesCount || 0} subcategories
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingCategory(category);
+                          setIsCategoryModalOpen(true);
+                        }}
+                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="Edit Category"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-800 truncate">{category.name}</h3>
-                        <p className="text-sm text-gray-500">
-                          {category.subCategoriesCount || 0} subcategories
-                        </p>
-                      </div>
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      </button>
+                      <svg 
+                        onClick={() => navigate(`/category/${category._id}`)}
+                        className="w-5 h-5 text-gray-400 cursor-pointer" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
@@ -558,6 +586,7 @@ const Dashboard = () => {
           setEditingCategory(null);
         }}
         onSave={handleSaveCategory}
+        onDelete={handleDeleteCategory}
         category={editingCategory}
       />
     </div>

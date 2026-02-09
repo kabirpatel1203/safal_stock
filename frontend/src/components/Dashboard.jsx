@@ -219,8 +219,6 @@ const Dashboard = () => {
       if (navigator.canShare && navigator.canShare({ files })) {
         await navigator.share({
           files,
-          title: 'Product Images',
-          text: `Sharing ${files.length} product image(s) from inventory`,
         });
         toast.success('Images shared successfully');
         clearSelection();
